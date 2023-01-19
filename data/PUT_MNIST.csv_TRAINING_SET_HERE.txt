@@ -1,0 +1,1 @@
+Before you start the program place the mnist dataset in the data folder
