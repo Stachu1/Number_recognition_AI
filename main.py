@@ -6,9 +6,11 @@ init()
 
 
 
-TRAIN_FILE = "data/mnist_train.csv"
-TEST_FILE = "data/mnist_test.csv"
+TRAIN_FILE = "data/train.csv"
+TEST_FILE = "data/test.csv"
 SHAPE = [784, 80, 20, 10]      # 784 input nodes, 100 hidden nodes, 10 output nodes
+
+MODEL = "model.npy"
 LAYERS = len(SHAPE) - 1
 
 
@@ -32,8 +34,8 @@ def init_params():
     for l in range(LAYERS):
         weight = np.random.rand(SHAPE[l+1], SHAPE[l]) - 0.5
         bias = np.random.rand(SHAPE[l+1], 1) - 0.5
-        net[f"weight{l}"] = weight
-        net[f"bias{l}"] = bias
+        net[f"w{l}"] = weight
+        net[f"b{l}"] = bias
     return net
 
 
@@ -61,7 +63,7 @@ def forward_propagation(net, input_layer):
     layers = []
     activated_layers = []
     for l in range(LAYERS):
-        layer = net[f"weight{l}"].dot(input_layer) + net[f"bias{l}"]
+        layer = net[f"w{l}"].dot(input_layer) + net[f"b{l}"]
         if l == LAYERS - 1:
             return soft_max(layer), layers, activated_layers
         input_layer = relu(layer)
@@ -74,36 +76,24 @@ def backward_propagation(net, layers, activated_layers, input_layer, output_laye
     one_hot_labels = one_hot(label)
     d_weights = []
     d_biases = []
-    d_layer = output_layer - one_hot_labels
-    for l in range(LAYERS-1, 0, -1):
+    d_layer = output_layer - one_hot_labels     # Delta for last layer
+    for l in range(LAYERS-1, 0, -1):            # Delta for hidden layers
         d_weights.append(1 / m * d_layer.dot(activated_layers[l-1].T))
         d_biases.append(1 / m * np.sum(d_layer))
-        
-        d_layer = net[f"weight{l}"].T.dot(d_layer) * derivative_relu(layers[l-1])
-        
+        d_layer = net[f"w{l}"].T.dot(d_layer) * derivative_relu(layers[l-1])
     
+    # Delta for input layer
     d_weights.append(1 / m * d_layer.dot(input_layer.T))
     d_biases.append(1 / m * np.sum(d_layer))
     d_weights.reverse()
     d_biases.reverse()
     return d_weights, d_biases
-    
-    # d_layer2 = output_layer - one_hot_labels
-    
-    # d_weight2 = 1 / m * d_layer2.dot(layer1_activated.T)
-    # d_bias2 = 1 / m * np.sum(d_layer2)
-    
-    # d_layer1 = weight2.T.dot(d_layer2) * derivative_relu(layer1)
-    
-    # d_weight1 = 1 / m * d_layer1.dot(input_layer.T)
-    # d_bias1 = 1 / m * np.sum(d_layer1)
-    # return d_weight1, d_bias1, d_weight2, d_bias2
 
 
 def update_values(net, d_weights, d_biases, alpha):
     for l in range(LAYERS):
-        net[f"weight{l}"] = net[f"weight{l}"] - alpha * d_weights[l]
-        net[f"bias{l}"] = net[f"bias{l}"] - alpha * d_biases[l]
+        net[f"w{l}"] = net[f"w{l}"] - alpha * d_weights[l]
+        net[f"b{l}"] = net[f"b{l}"] - alpha * d_biases[l]
     return net
 
 
@@ -117,7 +107,7 @@ def get_accuracy(predictions, label):
 
 def gradient_descent(input_layer, label, iterations, alpha):
     time_start = time.time()
-    with open("accu.log", "w") as f:
+    with open("training.log", "w") as f:
         net = init_params()
         for i in range(iterations):
             output_layer, layers, activated_layers = forward_propagation(net, input_layer)
@@ -132,31 +122,48 @@ def gradient_descent(input_layer, label, iterations, alpha):
     return net
 
 
-if len(sys.argv) > 1:
-    file_name = sys.argv[1]
-    img = Image.open(file_name).resize((28,28)).convert("L")
-    img = ImageOps.invert(img)
-    img = img.point(lambda p: 0 if p < 150 else p)
-    img.show()
-    input_layer = np.asarray(img)
-    input_layer = np.reshape(input_layer, (784, 1))
-    input_layer = input_layer / 255
-    net = np.load("model.npy")
-    output_layer, layers, activated_layers = forward_propagation(net, input_layer)
-    for index, value in enumerate(output_layer):
-        print(f"{index}: {round(value[0]*100, 2)}%")
-    
 
-else:
-    if input("\nDo you want to train a new model? (Y/n): ") == "n":
-        input_layer, label = get_data(TRAIN_FILE)
-        net = np.load("model.npy", allow_pickle=True).item()
-        output_layer, layers, activated_layers = forward_propagation(net, input_layer)
-        accuracy = get_accuracy(get_predictions(output_layer), label)
-        print(f"{Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%")
-    else:
-        input_layer, label = get_data(TEST_FILE)
-        iterations = int(input("Iterations: "))
-        alpha = float(input("Alpha: "))
-        net = gradient_descent(input_layer, label, iterations, alpha)
-        np.save("model.npy", net)
+if __name__ == "__main__":
+    try:
+        match len(sys.argv):
+            case 1:
+                # Get accuracy on the TEST_FILE
+                input_layer, label = get_data(TEST_FILE)
+                net = np.load(MODEL, allow_pickle=True).item()
+                output_layer, layers, activated_layers = forward_propagation(net, input_layer)
+                accuracy = get_accuracy(get_predictions(output_layer), label)
+                print(f"{Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%")
+
+            case 2:
+                # Predict the number in the image
+                img = Image.open(sys.argv[1]).resize((28,28)).convert("L")
+                img = ImageOps.invert(img)
+                threshold = max(img.getpixel((0,0)), img.getpixel((27,0)), img.getpixel((0,27)), img.getpixel((27,27)))
+                img = img.point(lambda p: 0 if p < threshold else p)
+                input_layer = np.asarray(img)
+                input_layer = np.reshape(input_layer, (784, 1))
+                input_layer = input_layer / 255
+                net = np.load(MODEL, allow_pickle=True).item()
+                output_layer, layers, activated_layers = forward_propagation(net, input_layer)
+                for index, value in enumerate(output_layer):
+                    print(f"{index}: {round(value[0]*100, 2)}%")
+                print(f"Predicted: {Fore.GREEN}{get_predictions(output_layer)[0]}{Fore.RESET}")
+
+            case 3:
+                # Train the model and save it
+                input_layer, label = get_data(TEST_FILE)
+                iterations = int(sys.argv[1])
+                alpha = float(sys.argv[2])
+                net = gradient_descent(input_layer, label, iterations, alpha)
+                np.save(MODEL, net)
+                print(f"{Fore.GREEN}Model saved{Fore.RESET}")
+
+            case _:
+                print(f"{Fore.RED}Invalid number of arguments`{Fore.RESET}")
+                print(f"Train model: python main.py [iterations] [alpha]")
+                print(f"Run image: python main.py [image_path]")
+                print(f"Run test data: python main.py")
+                exit(1)
+    except FileNotFoundError as e:
+        print(f"{Fore.RED}File {str(e).split(" ")[-1]} not found{Fore.RESET}")
+        exit(1)
