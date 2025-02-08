@@ -8,7 +8,7 @@ init()
 
 TRAIN_FILE = "data/train.csv"
 TEST_FILE = "data/test.csv"
-SHAPE = [784, 128, 64, 10]      # 784 input nodes, 100 hidden nodes, 10 output nodes
+SHAPE = [784, 100, 10]      # 784 input neurons, hidden neurons, 10 output neurons
 
 MODEL = "model.npy"
 LAYERS = len(SHAPE) - 1
@@ -106,20 +106,24 @@ def get_accuracy(predictions, label):
 
 
 def gradient_descent(input_layer, label, iterations, alpha):
-    with open("training.log", "w") as f:
-        net = init_params()
-        time_start = time.time()
-        for i in range(iterations):
-            output_layer, layers, activated_layers = forward_propagation(net, input_layer)
-            d_weights, d_biases = backward_propagation(net, layers, activated_layers, input_layer, output_layer, label)
-            net = update_values(net, d_weights, d_biases, alpha)
-            accuracy = get_accuracy(get_predictions(output_layer), label)
-            elapsed = time.time() - time_start
-            eta = elapsed * iterations / (i+1) - elapsed
-            f.write(f"{accuracy}\n")
-            if (i % 1) == 0:
-                print(f"{Fore.MAGENTA}Iteration: {Fore.RESET}{i+1}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}ETA: {Fore.RESET}{eta:.2f}s      ", end="\r")
-        print(f"{Fore.MAGENTA}Iteration: {Fore.RESET}{iterations}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}Elapsed: {Fore.RESET}{elapsed:.2f}s      ")
+    f = open("training.log", "w")
+    print(f"{Fore.YELLOW} Initialising neural network...{Fore.RESET}", end="\r")
+    net = init_params()
+    print(f"{Fore.YELLOW} Training...{Fore.RESET}", end="\r")
+    time_start = time.time()
+    for i in range(iterations):
+        output_layer, layers, activated_layers = forward_propagation(net, input_layer)
+        d_weights, d_biases = backward_propagation(net, layers, activated_layers, input_layer, output_layer, label)
+        net = update_values(net, d_weights, d_biases, alpha)
+        accuracy = get_accuracy(get_predictions(output_layer), label)
+        elapsed = time.time() - time_start
+        eta = elapsed * iterations / (i+1) - elapsed
+        f.write(f"{accuracy}\n")
+        alpha = alpha * 0.99 if i % 10 == 0 else alpha
+        if (i % 1) == 0:
+            print(f"{Fore.MAGENTA} Iteration: {Fore.RESET}{i+1}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}ETA: {Fore.RESET}{eta:.2f}s      ", end="\r")
+    print(f"{Fore.MAGENTA} Iteration: {Fore.RESET}{iterations}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}Elapsed: {Fore.RESET}{elapsed:.2f}s      ")
+    f.close()
     return net
 
 
@@ -152,6 +156,7 @@ if __name__ == "__main__":
 
             case 3:
                 # Train the model and save it
+                print(f"{Fore.YELLOW} Loading the data...{Fore.RESET}", end="\r")
                 input_layer, label = get_data(TRAIN_FILE)
                 iterations = int(sys.argv[1])
                 alpha = float(sys.argv[2])
@@ -167,4 +172,8 @@ if __name__ == "__main__":
                 exit(1)
     except FileNotFoundError as e:
         print(f"{Fore.RED}File {str(e).split(" ")[-1]} not found{Fore.RESET}")
+        exit(1)
+
+    except KeyError:
+        print(f"{Fore.RED}Loaded model doesn't match the shape!{Fore.RESET}")
         exit(1)
