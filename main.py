@@ -8,7 +8,7 @@ init()
 
 TRAIN_FILE = "data/train.csv"
 TEST_FILE = "data/test.csv"
-SHAPE = [784, 80, 20, 10]      # 784 input nodes, 100 hidden nodes, 10 output nodes
+SHAPE = [784, 128, 64, 10]      # 784 input nodes, 100 hidden nodes, 10 output nodes
 
 MODEL = "model.npy"
 LAYERS = len(SHAPE) - 1
@@ -106,19 +106,20 @@ def get_accuracy(predictions, label):
 
 
 def gradient_descent(input_layer, label, iterations, alpha):
-    time_start = time.time()
     with open("training.log", "w") as f:
         net = init_params()
+        time_start = time.time()
         for i in range(iterations):
             output_layer, layers, activated_layers = forward_propagation(net, input_layer)
             d_weights, d_biases = backward_propagation(net, layers, activated_layers, input_layer, output_layer, label)
             net = update_values(net, d_weights, d_biases, alpha)
             accuracy = get_accuracy(get_predictions(output_layer), label)
-            eta = (time.time() - time_start) * iterations / (i+1) -(time.time() - time_start)
+            elapsed = time.time() - time_start
+            eta = elapsed * iterations / (i+1) - elapsed
             f.write(f"{accuracy}\n")
             if (i % 1) == 0:
-                print(f"{Fore.YELLOW}Iteration: {Fore.RESET}{i+1}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}ETA: {Fore.RESET}{eta:.2f}s      ", end="\r")
-        print(f"{Fore.YELLOW}Iteration: {Fore.RESET}{iterations}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%")
+                print(f"{Fore.MAGENTA}Iteration: {Fore.RESET}{i+1}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}ETA: {Fore.RESET}{eta:.2f}s      ", end="\r")
+        print(f"{Fore.MAGENTA}Iteration: {Fore.RESET}{iterations}   {Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%   {Fore.CYAN}Elapsed: {Fore.RESET}{elapsed:.2f}s      ")
     return net
 
 
@@ -151,7 +152,7 @@ if __name__ == "__main__":
 
             case 3:
                 # Train the model and save it
-                input_layer, label = get_data(TEST_FILE)
+                input_layer, label = get_data(TRAIN_FILE)
                 iterations = int(sys.argv[1])
                 alpha = float(sys.argv[2])
                 net = gradient_descent(input_layer, label, iterations, alpha)
