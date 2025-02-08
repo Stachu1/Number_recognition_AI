@@ -1,4 +1,4 @@
-import numpy as np, pandas as pd, time, sys
+import numpy as np, pandas as pd, time
 from PIL import Image, ImageOps
 from colorama import Fore, init
 init()
@@ -6,7 +6,7 @@ init()
 
 
 class NeuralNetwork:
-    def __init__(self, shape):
+    def __init__(self, shape=[784, 80, 10]):
         self.shape = shape
         self.layers_count = len(shape) - 1
         self.input_layer = None
@@ -37,11 +37,13 @@ class NeuralNetwork:
     
     
     def save_model(self, file_name):
+        print(f"{Fore.YELLOW}\33[2K Saving model...{Fore.RESET}", end="\r")
         np.save(file_name, {"net": self.net, "shape": self.shape})
+        print(f"{Fore.GREEN}\33[2KModel saved{Fore.RESET}")
 
 
     def load_model(self, file_name):
-        data = np.load(MODEL, allow_pickle=True).item()
+        data = np.load(file_name, allow_pickle=True).item()
         self.net = data["net"]
         self.shape = data["shape"]
         self.layers_count = len(self.shape) - 1
@@ -145,6 +147,18 @@ class NeuralNetwork:
         print(f"{Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%")
 
 
+    def predict(self, file_name):
+        img = Image.open(file_name).resize((28,28)).convert("L")
+        img = ImageOps.invert(img)
+        threshold = max(img.getpixel((0,0)), img.getpixel((27,0)), img.getpixel((0,27)), img.getpixel((27,27)))
+        img = img.point(lambda p: 0 if p < threshold else p)
+        input_layer = np.reshape(np.asarray(img), (784, 1)) / 255
+        output_layer, _, _ = self.forward_propagation(input_layer)
+        for index, value in enumerate(output_layer):
+            print(f"{index}: {round(value[0]*100, 2)}%")
+        print(f"Predicted: {Fore.GREEN}{self.get_predictions(output_layer)[0]}{Fore.RESET}")
+
+
 
 if __name__ == "__main__":
     TRAIN_FILE = "data/train.csv"
@@ -158,54 +172,3 @@ if __name__ == "__main__":
     neural_network.save_model(MODEL)
     neural_network.load_model(MODEL)
     neural_network.test(TEST_FILE)
-
-
-# if __name__ == "__main__":
-#     try:
-#         match len(sys.argv):
-#             case 1:
-#                 # Get accuracy on the TEST_FILE
-#                 input_layer, label = get_data(TEST_FILE)
-#                 net = np.load(MODEL, allow_pickle=True).item()
-#                 output_layer, layers, activated_layers = forward_propagation(net, input_layer)
-#                 accuracy = get_accuracy(get_predictions(output_layer), label)
-#                 print(f"{Fore.GREEN}Accuracy: {Fore.RESET}{(accuracy*100):.2f}%")
-
-#             case 2:
-#                 # Predict the number in the image
-#                 img = Image.open(sys.argv[1]).resize((28,28)).convert("L")
-#                 img = ImageOps.invert(img)
-#                 threshold = max(img.getpixel((0,0)), img.getpixel((27,0)), img.getpixel((0,27)), img.getpixel((27,27)))
-#                 img = img.point(lambda p: 0 if p < threshold else p)
-#                 input_layer = np.asarray(img)
-#                 input_layer = np.reshape(input_layer, (784, 1))
-#                 input_layer = input_layer / 255
-#                 net = np.load(MODEL, allow_pickle=True).item()
-#                 output_layer, layers, activated_layers = forward_propagation(net, input_layer)
-#                 for index, value in enumerate(output_layer):
-#                     print(f"{index}: {round(value[0]*100, 2)}%")
-#                 print(f"Predicted: {Fore.GREEN}{get_predictions(output_layer)[0]}{Fore.RESET}")
-
-#             case 3:
-#                 # Train the model and save it
-#                 print(f"{Fore.YELLOW} Loading the data...{Fore.RESET}", end="\r")
-#                 input_layer, label = get_data(TRAIN_FILE)
-#                 iterations = int(sys.argv[1])
-#                 alpha = float(sys.argv[2])
-#                 net = gradient_descent(input_layer, label, iterations, alpha)
-#                 np.save(MODEL, net)
-#                 print(f"{Fore.GREEN}Model saved{Fore.RESET}")
-
-#             case _:
-#                 print(f"{Fore.RED}Invalid number of arguments`{Fore.RESET}")
-#                 print(f"Train model: python main.py [iterations] [alpha]")
-#                 print(f"Run image: python main.py [image_path]")
-#                 print(f"Run test data: python main.py")
-#                 exit(1)
-#     except FileNotFoundError as e:
-#         print(f"{Fore.RED}File {str(e).split(" ")[-1]} not found{Fore.RESET}")
-#         exit(1)
-
-#     except KeyError:
-#         print(f"{Fore.RED}Loaded model doesn't match the shape!{Fore.RESET}")
-#         exit(1)
